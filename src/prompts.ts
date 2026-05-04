@@ -20,8 +20,12 @@ For definition style, choose the most memorable format:
 
 Keep definitions concise. One line, two max.
 
+Also provide a "furigana" field with the full sentence annotated in Anki furigana format.
+In this format, kanji words are followed by their reading in square brackets, with a space before each annotated word.
+Example: " 傘[かさ]を 持[も]っていったほうがいいよ"
+
 Respond in JSON format as an array of CardSuggestion objects:
-[{ "word": "...", "reading": "...", "style": "...", "definition": "...", "reasoning": "..." }]
+[{ "word": "...", "reading": "...", "furigana": "...", "style": "...", "definition": "...", "reasoning": "..." }]
 
 Return ONLY valid JSON, no markdown fences, no preamble.`;
 
@@ -37,8 +41,12 @@ For definition style, choose the most memorable format:
 
 Keep definitions concise. One line, two max.
 
+Also provide a "furigana" field with the full sentence annotated in Anki furigana format.
+In this format, kanji words are followed by their reading in square brackets, with a space before each annotated word.
+Example: " 傘[かさ]を 持[も]っていったほうがいいよ"
+
 Respond in JSON format as a single CardSuggestion object:
-{ "word": "...", "reading": "...", "style": "...", "definition": "...", "reasoning": "..." }
+{ "word": "...", "reading": "...", "furigana": "...", "style": "...", "definition": "...", "reasoning": "..." }
 
 Return ONLY valid JSON, no markdown fences, no preamble.`;
 

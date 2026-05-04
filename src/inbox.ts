@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, appendFile } from "node:fs/promises";
 import type { InboxEntry } from "./types.js";
 
 const BRACKET_RE = /【(.+?)】/;
@@ -55,8 +55,38 @@ export function parseInboxContent(content: string): InboxEntry[] {
   return entries;
 }
 
+function entryToMarkdown(entry: InboxEntry): string {
+  let md = entry.sentence;
+  if (entry.context) {
+    md += "\n> " + entry.context.split("\n").join("\n> ");
+  }
+  return md;
+}
+
 export async function archiveProcessed(
-  _filePath: string,
-  _archivePath: string,
-  _entries: InboxEntry[],
-): Promise<void> {}
+  filePath: string,
+  archivePath: string,
+  processedEntries: InboxEntry[],
+): Promise<void> {
+  const processedSentences = new Set(processedEntries.map((e) => e.sentence));
+
+  const allEntries = await parseInbox(filePath);
+  const remaining = allEntries.filter(
+    (e) => !processedSentences.has(e.sentence),
+  );
+
+  const archiveContent =
+    processedEntries.map((e) => `---\n${entryToMarkdown(e)}`).join("\n") +
+    "\n---\n";
+  await appendFile(archivePath, archiveContent, "utf-8");
+
+  if (remaining.length === 0) {
+    await writeFile(filePath, "# Anki Inbox\n\n---\n", "utf-8");
+  } else {
+    const inboxContent =
+      "# Anki Inbox\n\n" +
+      remaining.map((e) => `---\n${entryToMarkdown(e)}`).join("\n") +
+      "\n---\n";
+    await writeFile(filePath, inboxContent, "utf-8");
+  }
+}

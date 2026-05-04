@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 import { createInterface } from "node:readline";
+import { join } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
-import { loadConfig } from "./config.js";
-import { parseInbox } from "./inbox.js";
+import { loadConfig, initConfig } from "./config.js";
+import { parseInbox, archiveProcessed } from "./inbox.js";
 import { isConnected, getKnownWords, addNote } from "./anki.js";
 import { getCachedWords, setCachedWords } from "./cache.js";
 import { generateCards, generateDefinition } from "./agent.js";
-import type { Config, CardSuggestion } from "./types.js";
+import type { Config, CardSuggestion, InboxEntry } from "./types.js";
 
 const program = new Command();
 
@@ -50,13 +51,30 @@ async function loadKnownWords(
     console.log(chalk.gray("Fetching known words from AnkiConnect..."));
   }
 
-  const words = await getKnownWords(config.deck, config.fields.word);
+  const words = await fetchKnownWords(config);
   await setCachedWords(config.deck, words);
 
   if (verbose) {
     console.log(chalk.gray(`Cached ${words.size} known words`));
   }
 
+  return words;
+}
+
+async function fetchKnownWords(config: Config): Promise<Set<string>> {
+  if (config.fields.word) {
+    return getKnownWords(config.deck, config.fields.word);
+  }
+
+  const rawDefinitions = await getKnownWords(
+    config.deck,
+    config.fields.definition,
+  );
+  const words = new Set<string>();
+  for (const def of rawDefinitions) {
+    const wordPart = def.split("：")[0]?.trim();
+    if (wordPart) words.add(wordPart);
+  }
   return words;
 }
 
@@ -81,19 +99,54 @@ function displaySuggestion(suggestion: CardSuggestion): void {
   console.log();
 }
 
+function highlightWord(sentence: string, word: string, color: string): string {
+  const highlighted = `<span style="color: ${color}">${word}</span>`;
+  return sentence.replace(word, highlighted);
+}
+
+function formatDefinitionField(
+  suggestion: CardSuggestion,
+  hasWordField: boolean,
+  color?: string,
+): string {
+  const def = hasWordField
+    ? suggestion.definition
+    : `${suggestion.word}：<br>・${suggestion.definition}`;
+  if (color) return `<span style="color: ${color}">${def}</span>`;
+  return def;
+}
+
 async function pushToAnki(
   sentence: string,
   suggestion: CardSuggestion,
   config: Config,
 ): Promise<void> {
+  const color = config.highlight_color;
+  const sentenceHtml = color
+    ? highlightWord(sentence, suggestion.word, color)
+    : sentence;
+
+  const fields: Record<string, string> = {
+    [config.fields.sentence]: sentenceHtml,
+    [config.fields.definition]: formatDefinitionField(
+      suggestion,
+      Boolean(config.fields.word),
+      color,
+    ),
+  };
+
+  if (config.fields.word) {
+    fields[config.fields.word] = suggestion.word;
+  }
+
+  if (config.fields.reading && suggestion.furigana) {
+    fields[config.fields.reading] = suggestion.furigana;
+  }
+
   const noteId = await addNote({
     deckName: config.deck,
     modelName: config.note_type,
-    fields: {
-      [config.fields.sentence]: sentence,
-      [config.fields.word]: suggestion.word,
-      [config.fields.definition]: suggestion.definition,
-    },
+    fields,
   });
   console.log(chalk.green(`   Added to Anki (note ${noteId})`));
 }
@@ -104,7 +157,7 @@ async function handleSingleSuggestion(
   config: Config,
   dryRun: boolean,
   verbose: boolean,
-): Promise<void> {
+): Promise<boolean> {
   displaySuggestion(suggestion);
 
   if (verbose) {
@@ -114,7 +167,7 @@ async function handleSingleSuggestion(
 
   if (dryRun) {
     console.log(chalk.gray("   (dry run — not pushing to Anki)"));
-    return;
+    return true;
   }
 
   const answer = await prompt(chalk.yellow("   [a]ccept  [e]dit  [s]kip  > "));
@@ -122,7 +175,7 @@ async function handleSingleSuggestion(
   switch (answer) {
     case "a": {
       await pushToAnki(sentence, suggestion, config);
-      break;
+      return true;
     }
     case "e": {
       const newDef = await prompt(chalk.yellow("   New definition: "));
@@ -132,15 +185,15 @@ async function handleSingleSuggestion(
           { ...suggestion, definition: newDef },
           config,
         );
-      } else {
-        console.log(chalk.gray("   Skipped (empty definition)"));
+        return true;
       }
-      break;
+      console.log(chalk.gray("   Skipped (empty definition)"));
+      return false;
     }
     case "s":
     default:
       console.log(chalk.gray("   Skipped"));
-      break;
+      return false;
   }
 }
 
@@ -150,7 +203,7 @@ async function handleMultipleSuggestions(
   config: Config,
   dryRun: boolean,
   verbose: boolean,
-): Promise<void> {
+): Promise<boolean> {
   console.log(chalk.cyan(`   Found ${suggestions.length} candidates:`));
   for (let i = 0; i < suggestions.length; i++) {
     const s = suggestions[i];
@@ -167,7 +220,7 @@ async function handleMultipleSuggestions(
       }
     }
     console.log(chalk.gray("   (dry run — not pushing to Anki)"));
-    return;
+    return true;
   }
 
   const numberOptions = suggestions.map((_, i) => `[${i + 1}]`).join("  ");
@@ -177,7 +230,7 @@ async function handleMultipleSuggestions(
 
   if (answer === "s") {
     console.log(chalk.gray("   Skipped"));
-    return;
+    return false;
   }
 
   const selectedSuggestions =
@@ -190,10 +243,19 @@ async function handleMultipleSuggestions(
           return [];
         })();
 
+  let accepted = false;
   for (const suggestion of selectedSuggestions) {
     console.log();
-    await handleSingleSuggestion(sentence, suggestion, config, dryRun, verbose);
+    const result = await handleSingleSuggestion(
+      sentence,
+      suggestion,
+      config,
+      dryRun,
+      verbose,
+    );
+    if (result) accepted = true;
   }
+  return accepted;
 }
 
 async function processSentence(
@@ -203,7 +265,7 @@ async function processSentence(
   opts: { dryRun: boolean; verbose: boolean },
   markedWord?: string,
   context?: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     let result;
 
@@ -223,11 +285,11 @@ async function processSentence(
 
     if (result.suggestions.length === 0) {
       console.log(chalk.gray("   No new words found for this sentence."));
-      return;
+      return false;
     }
 
     if (result.suggestions.length === 1) {
-      await handleSingleSuggestion(
+      return await handleSingleSuggestion(
         sentence,
         result.suggestions[0],
         config,
@@ -235,7 +297,7 @@ async function processSentence(
         opts.verbose,
       );
     } else {
-      await handleMultipleSuggestions(
+      return await handleMultipleSuggestions(
         sentence,
         result.suggestions,
         config,
@@ -245,6 +307,7 @@ async function processSentence(
     }
   } catch (err) {
     console.error(chalk.red(`   Error: ${(err as Error).message}`));
+    return false;
   }
 }
 
@@ -295,6 +358,8 @@ program
         chalk.blue(`Found ${entries.length} sentence(s) in inbox.\n`),
       );
 
+      const acceptedEntries: InboxEntry[] = [];
+
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         console.log(
@@ -305,7 +370,7 @@ program
         }
         console.log();
 
-        await processSentence(
+        const accepted = await processSentence(
           entry.sentence,
           knownWords,
           config,
@@ -314,7 +379,21 @@ program
           entry.context,
         );
 
+        if (accepted) {
+          acceptedEntries.push(entry);
+        }
+
         console.log();
+      }
+
+      if (!dryRun && acceptedEntries.length > 0) {
+        const archivePath = file.replace(/\.md$/, "-archive.md");
+        await archiveProcessed(file, archivePath, acceptedEntries);
+        console.log(
+          chalk.gray(
+            `Archived ${acceptedEntries.length} sentence(s) to ${archivePath}`,
+          ),
+        );
       }
 
       console.log(chalk.green("Done."));
@@ -370,7 +449,7 @@ program
     try {
       await ensureAnkiConnect();
       const config = await loadConfig(program.opts().config);
-      const words = await getKnownWords(config.deck, config.fields.word);
+      const words = await fetchKnownWords(config);
       await setCachedWords(config.deck, words);
       console.log(
         chalk.green(`Cached ${words.size} words from "${config.deck}"`),
@@ -385,9 +464,13 @@ program
   .command("init")
   .description("Create a .ankitango.yml config file in the current directory")
   .action(async () => {
-    console.log(
-      chalk.gray("(Interactive setup will be implemented in Phase 3)"),
-    );
+    try {
+      const targetPath = join(process.cwd(), ".ankitango.yml");
+      await initConfig(targetPath);
+    } catch (err) {
+      console.error(chalk.red((err as Error).message));
+      process.exit(1);
+    }
   });
 
 program.parse();

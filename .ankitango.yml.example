@@ -9,9 +9,10 @@ level: "JLPT N2"
 deck: "Japanese::Sentences"
 note_type: "Sentence"
 
+# "word" is optional — omit it to combine the word into the definition field
 fields:
   sentence: "Sentence"
-  word: "Word"
+  # word: "Word"
   definition: "Definition"
 
 # Few-shot examples that teach the AI your personal definition style.

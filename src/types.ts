@@ -6,11 +6,13 @@ export interface Config {
   note_type: string;
   fields: {
     sentence: string;
-    word: string;
+    word?: string;
+    reading?: string;
     definition: string;
   };
   examples: StyleExample[];
   style_hints?: string;
+  highlight_color?: string;
 }
 
 export interface StyleExample {
@@ -29,6 +31,7 @@ export interface InboxEntry {
 export interface CardSuggestion {
   word: string;
   reading: string;
+  furigana: string;
   style: "emoji" | "ja" | "en" | "ascii";
   definition: string;
   reasoning: string;

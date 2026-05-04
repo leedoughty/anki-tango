@@ -17,9 +17,11 @@ deck: "Japanese"
 note_type: "Basic"
 
 # Field names in your Anki note type
+# "word" is optional — if omitted, the word is combined into the definition
+# field as "word：\n・definition"
 fields:
   sentence: "Front"
-  word: "Word"
+  # word: "Word"
   definition: "Back"
 
 # Few-shot examples that teach the AI your personal definition style.

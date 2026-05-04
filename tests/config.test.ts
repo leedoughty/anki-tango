@@ -22,7 +22,7 @@ describe("loadConfig", () => {
     expect(config.deck).toBe("Japanese");
     expect(config.note_type).toBe("Basic");
     expect(config.fields.sentence).toBe("Front");
-    expect(config.fields.word).toBe("Word");
+    expect(config.fields.word).toBeUndefined();
     expect(config.fields.definition).toBe("Back");
     expect(config.examples).toEqual([]);
   });
@@ -56,7 +56,7 @@ fields:
 
     const config = await loadConfig("/path/to/config.yml");
     expect(config.fields.sentence).toBe("MySentence");
-    expect(config.fields.word).toBe("Word");
+    expect(config.fields.word).toBeUndefined();
     expect(config.fields.definition).toBe("Back");
   });
 

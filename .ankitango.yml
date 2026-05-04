@@ -1,0 +1,19 @@
+target_language: ja
+native_language: en
+level: "JLPT N2"
+
+deck: "Japanese Vocabulary"
+note_type: "Japanese"
+
+highlight_color: "#ffbd00"
+
+fields:
+  sentence: "Expression"
+  reading: "Reading"
+  definition: "Meaning"
+
+examples:
+  - sentence: "傘を持っていったほうがいいよ"
+    word: "傘"
+    style: emoji
+    definition: "☂️🌂"
