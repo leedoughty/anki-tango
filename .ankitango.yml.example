@@ -1,0 +1,42 @@
+# anki-tango configuration
+# Copy this file to .ankitango.yml and customize it.
+# See https://github.com/leedoughty/anki-tango for full documentation.
+
+target_language: ja
+native_language: en
+level: "JLPT N2"
+
+deck: "Japanese::Sentences"
+note_type: "Sentence"
+
+fields:
+  sentence: "Sentence"
+  word: "Word"
+  definition: "Definition"
+
+# Few-shot examples that teach the AI your personal definition style.
+# These are the most important part of your config — add at least 5!
+examples:
+  - sentence: "ゴミの分別にご協力ください"
+    word: "分別"
+    style: ja
+    definition: "種類ごとに分けること"
+  - sentence: "傘を持っていったほうがいいよ"
+    word: "傘"
+    style: emoji
+    definition: "☂️🌂"
+  - sentence: "この件について検討させていただきます"
+    word: "検討"
+    style: en
+    definition: "to consider; to examine carefully"
+  - sentence: "矢印の方向に進んでください"
+    word: "矢印"
+    style: ascii
+    definition: "→ ← ↑ ↓"
+  - sentence: "彼は頑固な性格だ"
+    word: "頑固"
+    style: ja
+    definition: "自分の考えを絶対に変えない様子"
+
+# Optional extra style guidance
+# style_hints: "Prefer emoji for concrete nouns. Use monolingual Japanese for abstract concepts."

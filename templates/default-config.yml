@@ -1,0 +1,47 @@
+# anki-tango configuration
+# See https://github.com/leedoughty/anki-tango for full documentation
+
+# Target language you are learning
+target_language: ja
+
+# Your native language (used for English-style definitions)
+native_language: en
+
+# Your approximate level — a soft hint to the AI, not a hard filter
+level: "JLPT N2"
+
+# Anki deck name (must match exactly)
+deck: "Japanese"
+
+# Anki note type name (must match exactly)
+note_type: "Basic"
+
+# Field names in your Anki note type
+fields:
+  sentence: "Front"
+  word: "Word"
+  definition: "Back"
+
+# Few-shot examples that teach the AI your personal definition style.
+# These are the most important part of your config — add at least 5.
+# Each example shows the AI what a good card looks like in your style.
+#
+# Styles:
+#   emoji  — concrete/visual meaning captured by emojis
+#   ja     — Japanese monolingual definition
+#   en     — English (or native language) definition
+#   ascii  — ASCII art or symbols
+#
+# examples:
+#   - sentence: "ゴミの分別にご協力ください"
+#     word: "分別"
+#     style: ja
+#     definition: "種類ごとに分けること"
+#   - sentence: "傘を持っていったほうがいいよ"
+#     word: "傘"
+#     style: emoji
+#     definition: "☂️🌂"
+examples: []
+
+# Optional extra style guidance for the AI
+# style_hints: "Prefer emoji definitions for concrete nouns. Use monolingual Japanese for abstract concepts."
