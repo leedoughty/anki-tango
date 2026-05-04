@@ -9,58 +9,37 @@ export async function parseInbox(filePath: string): Promise<InboxEntry[]> {
 }
 
 export function parseInboxContent(content: string): InboxEntry[] {
-  const sections = content.split(/^---$/m);
+  const lines = content.split("\n");
   const entries: InboxEntry[] = [];
 
-  for (const section of sections) {
-    const lines = section
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    if (line.startsWith("#")) continue;
 
-    if (lines.length === 0) continue;
-
-    const contextLines: string[] = [];
-    const sentenceLines: string[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("#")) continue;
-      if (line.startsWith("> ")) {
-        contextLines.push(line.slice(2));
-      } else {
-        sentenceLines.push(line);
-      }
+    if (line.startsWith("> ") && entries.length > 0) {
+      const lastEntry = entries[entries.length - 1];
+      const contextLine = line.slice(2);
+      lastEntry.context = lastEntry.context
+        ? lastEntry.context + "\n" + contextLine
+        : contextLine;
+      continue;
     }
 
-    if (sentenceLines.length === 0) continue;
-
-    const rawSentence = sentenceLines.join("\n");
-    const bracketMatch = rawSentence.match(BRACKET_RE);
+    const bracketMatch = line.match(BRACKET_RE);
 
     const entry: InboxEntry = {
-      sentence: rawSentence.replace(/【(.+?)】/g, "$1"),
+      sentence: line.replace(/【(.+?)】/g, "$1"),
     };
 
     if (bracketMatch) {
       entry.markedWord = bracketMatch[1];
     }
 
-    if (contextLines.length > 0) {
-      entry.context = contextLines.join("\n");
-    }
-
     entries.push(entry);
   }
 
   return entries;
-}
-
-function entryToMarkdown(entry: InboxEntry): string {
-  let md = entry.sentence;
-  if (entry.context) {
-    md += "\n> " + entry.context.split("\n").join("\n> ");
-  }
-  return md;
 }
 
 export async function archiveProcessed(
@@ -75,18 +54,9 @@ export async function archiveProcessed(
     (e) => !processedSentences.has(e.sentence),
   );
 
-  const archiveContent =
-    processedEntries.map((e) => `---\n${entryToMarkdown(e)}`).join("\n") +
-    "\n---\n";
-  await appendFile(archivePath, archiveContent, "utf-8");
+  const archiveLines = processedEntries.map((e) => e.sentence);
+  await appendFile(archivePath, archiveLines.join("\n") + "\n", "utf-8");
 
-  if (remaining.length === 0) {
-    await writeFile(filePath, "# Anki Inbox\n\n---\n", "utf-8");
-  } else {
-    const inboxContent =
-      "# Anki Inbox\n\n" +
-      remaining.map((e) => `---\n${entryToMarkdown(e)}`).join("\n") +
-      "\n---\n";
-    await writeFile(filePath, inboxContent, "utf-8");
-  }
+  const header = remaining.length === 0 ? "" : remaining.map((e) => e.sentence).join("\n") + "\n";
+  await writeFile(filePath, header, "utf-8");
 }
